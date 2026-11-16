@@ -1,18 +1,18 @@
 import os
+import time
 from dotenv import load_dotenv
 from google import genai
 import chromadb
-import fitz
+import pymupdf
 
 load_dotenv()
 client = genai.Client()
-
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
-collection = chroma_client.get_or_create_collection(name="manalysis_textbook")
+collection = chroma_client.get_or_create_collection(name="calculus_textbook")
 
 def extract_text_from_pdf(pdf_path: str):
-    print(f"Чтение: {pdf_path}...")
-    doc = fitz.open(pdf_path)
+    print(f"Читаем PDF-файл: {pdf_path}...")
+    doc = pymupdf.open(pdf_path)
     full_text = ""
     for page_num in range(len(doc)):
         page = doc[page_num]
@@ -33,31 +33,37 @@ pdf_filename = "manalysis.pdf"
 
 if not os.path.exists(pdf_filename):
     print(f"Ошибка: файл '{pdf_filename}' не найден в папке проекта!")
-    print("Пожалуйста, положите PDF-файл учебника по матанализу в корень проекта и назовите его manalysis.pdf.")
 else:
     raw_text = extract_text_from_pdf(pdf_filename)
-    
     chunks = chunk_text_with_overlap(raw_text, chunk_size=1000, overlap=200)
     print(f"Учебник успешно разбит на {len(chunks)} смысловых чанков.")
 
-    limit_chunks = 25
-    print(f"Начинаем векторизацию первых {limit_chunks} чанков учебника через Gemini API...")
+    total_chunks = len(chunks)
+    print(f"Начинаем векторизацию чанков через Gemini API...")
 
-    for i in range(min(limit_chunks, len(chunks))):
+    for i in range(total_chunks):
         chunk = chunks[i]
         
-        response = client.models.embed_content(
-            model="gemini-embedding-001",
-            contents=chunk
-        )
-        vector = response.embeddings[0].values
-        \
-        collection.add(
-            ids=[f"math_chunk_{i}"],
-            embeddings=[vector],
-            documents=[chunk],
-            metadatas=[{"source": "calculus.pdf", "chunk_id": i}]
-        )
-        print(f"   - Чанк {i+1}/{limit_chunks} векторизован и сохранен.")
+        try:
+            response = client.models.embed_content(
+                model="gemini-embedding-001",
+                contents=chunk
+            )
+            vector = response.embeddings[0].values
+            
+            collection.upsert(
+                ids=[f"math_chunk_{i}"],
+                embeddings=[vector],
+                documents=[chunk],
+                metadatas=[{"source": "manalysis.pdf", "chunk_id": i}]
+            )
+            if (i + 1) % 10 ==0 or i == 0:
+                print(f"   Прогресс: {i + 1} / {total_chunks}.")
+            
+            time.sleep(1)
+            
+        except Exception as e:
+            print(f"Ошибка на чанке {i+1}: {e}")
+            break
 
-    print(f"\nГотово! Первые фрагменты учебника матанализа загружены в векторную базу ./chroma_db.")
+    print(f"\nГотово! Процесс загрузки завершен.")
