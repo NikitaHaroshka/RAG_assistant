@@ -5,6 +5,7 @@ from google import genai
 import chromadb
 import pymupdf
 
+
 load_dotenv()
 client = genai.Client()
 chroma_client = chromadb.PersistentClient(path="./chroma_db")

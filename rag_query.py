@@ -13,7 +13,6 @@ collection = chroma_client.get_or_create_collection(name="calculus_textbook")
 def ask_rag(user_query: str):
     print(f"\n Вопрос пользователя: «{user_query}»")
     
-    print(" Превращаем вопрос в эмбеддинг и ищем контекст в ChromaDB...")
     query_response = client.models.embed_content(
         model="gemini-embedding-001",
         contents=user_query
@@ -55,8 +54,9 @@ def ask_rag(user_query: str):
     return response.text
 
 if __name__ == "__main__":
-    question = "Сформулируй определение предела функции."
+    question = "Расскажи что такое предел функции и приведи мне критерий монотонности."
     answer = ask_rag(question)
     
     print("\n======================")
     print(answer)
+    
